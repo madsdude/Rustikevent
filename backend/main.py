@@ -1,43 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from pydantic import BaseModel, Field
-from typing import List, Optional
-import json, os, threading, secrets, datetime
-
-
-app = FastAPI(title="RustikEvent API", version="0.1")
-security = HTTPBasic()
-lock = threading.Lock()
-
-
-EVENTS_FILE = os.environ.get("EVENTS_FILE", "/data/events.json")
-ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
-ADMIN_PASS = os.environ.get("ADMIN_PASS", "changeme")
-
-
-app.add_middleware(
-CORSMiddleware,
-allow_origins=["*"],
-allow_credentials=True,
-allow_methods=["*"]
-,allow_headers=["*"]
-)
-
-
-class Event(BaseModel):
-id: int = Field(..., description="Auto-increment id")
-title: str
-date: str # YYYY-MM-DD
-doors: Optional[str] = None # HH:MM
-start: Optional[str] = None # HH:MM
-price: Optional[str] = None
-age: Optional[str] = "18+"
-location: Optional[str] = "Rustik Event, Randers"
-poster_url: Optional[str] = None
-facebook_url: Optional[str] = None
-tags: List[str] = []
-status: Optional[str] = "announced" # announced|soldout|cancelled
+from fastapi import FastAPI, HTTPException, Depends
 highlight: bool = False
 description: Optional[str] = None
 
@@ -96,4 +60,35 @@ def create_event(event: Event, _: bool = Depends(require_admin)):
 events = _load()
 if event.id == 0:
 event.id = _next_id(events)
+# ensure unique id
+if any(e.id == event.id for e in events):
+event.id = _next_id(events)
+events.append(event)
+_save(events)
+return event
+
+
+@app.put("/api/events/{event_id}", response_model=Event)
+def update_event(event_id: int, event: Event, _: bool = Depends(require_admin)):
+events = _load()
+for i, e in enumerate(events):
+if e.id == event_id:
+events[i] = event
+_save(events)
+return event
+raise HTTPException(404, "Event not found")
+
+
+@app.delete("/api/events/{event_id}")
+def delete_event(event_id: int, _: bool = Depends(require_admin)):
+events = _load()
+new_events = [e for e in events if e.id != event_id]
+if len(new_events) == len(events):
+raise HTTPException(404, "Event not found")
+_save(new_events)
+return {"deleted": event_id}
+
+
+# Seed file if missing
+if not os.path.exists(EVENTS_FILE):
 _save([])
