@@ -1,89 +1,158 @@
 <!doctype html>
-</div>
-</form>
-</section>
+<html lang="da">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Admin · Rustik Event</title>
+  <link rel="stylesheet" href="/_shared.css"/>
+</head>
+<body>
+  <nav class="nav container">
+    <div class="logo">R<span style="color:var(--neon)">EVENTS</span></div>
+    <div class="nav-right">
+      <a class="btn" href="/">Forside</a>
+      <a class="btn" href="/kalender.html">Kalender</a>
+    </div>
+  </nav>
 
+  <main class="container">
+    <h1>Admin</h1>
 
-<section style="margin-top:1rem">
-<h2>Alle events</h2>
-<div id="list" class="grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))"></div>
-</section>
-</main>
+    <section class="card" style="padding:1rem;margin-bottom:1rem">
+      <h2>Login</h2>
+      <form id="loginForm" onsubmit="doLogin(event)" style="display:flex;gap:.6rem;flex-wrap:wrap">
+        <input id="u" placeholder="Brugernavn" required style="padding:.6rem;border-radius:10px;border:1px solid #395a51;background:#0d2621;color:var(--text)"> 
+        <input id="p" type="password" placeholder="Adgangskode" required style="padding:.6rem;border-radius:10px;border:1px solid #395a51;background:#0d2621;color:var(--text)">
+        <button class="btn" type="submit">Login</button>
+        <span id="loginOk" style="margin-left:.6rem"></span>
+      </form>
+    </section>
 
+    <section class="card" style="padding:1rem">
+      <h2>Opret/redigér event</h2>
+      <form id="eventForm" onsubmit="upsert(event)">
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+          <label>ID <input id="id" type="number" value="0" min="0" style="width:100%"></label>
+          <label>Titel <input id="title" required style="width:100%"></label>
+          <label>Dato <input id="date" type="date" required style="width:100%"></label>
+          <label>Døre <input id="doors" placeholder="20:00" style="width:100%"></label>
+          <label>Start <input id="start" placeholder="21:00" style="width:100%"></label>
+          <label>Pris <input id="price" placeholder="Fri entre / 120,-" style="width:100%"></label>
+          <label>Alder <input id="age" placeholder="18+" style="width:100%"></label>
+          <label>Facebook URL <input id="facebook_url" placeholder="https://facebook.com/..." style="width:100%"></label>
+          <label>Plakat (URL) <input id="poster_url" placeholder="https://...jpg" style="width:100%"></label>
+          <label>Tags (komma) <input id="tags" placeholder="live,dj" style="width:100%"></label>
+          <label>Status
+            <select id="status" style="width:100%">
+              <option value="announced">Annonceret</option>
+              <option value="soldout">Udsolgt</option>
+              <option value="cancelled">Aflyst</option>
+            </select>
+          </label>
+          <label>Highlight
+            <select id="highlight" style="width:100%">
+              <option value="false">Nej</option>
+              <option value="true">Ja</option>
+            </select>
+          </label>
+        </div>
+        <label>Beskrivelse
+          <textarea id="description" rows="4" style="width:100%"></textarea>
+        </label>
+        <div style="display:flex;gap:.6rem;margin-top:.6rem;flex-wrap:wrap">
+          <button class="btn" type="submit">Gem</button>
+          <button class="btn" type="button" onclick="clearForm()">Ny</button>
+          <button class="btn" type="button" onclick="del()">Slet</button>
+        </div>
+      </form>
+    </section>
+
+    <section style="margin-top:1rem">
+      <h2>Alle events</h2>
+      <div id="list" class="grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))"></div>
+    </section>
+  </main>
 
 <script>
 const S = {
-get auth(){ return localStorage.getItem('auth')||'' },
-set auth(v){ localStorage.setItem('auth', v) }
+  get token(){ return localStorage.getItem('token')||'' },
+  set token(v){ localStorage.setItem('token', v) }
 };
-function saveCreds(e){
-e.preventDefault();
-const u=document.getElementById('u').value.trim();
-const p=document.getElementById('p').value.trim();
-S.auth = 'Basic '+btoa(u+':'+p);
-document.getElementById('loginOk').textContent='✔ Gemt';
+async function doLogin(e){
+  e.preventDefault();
+  const body = new URLSearchParams();
+  body.append('username', document.getElementById('u').value.trim());
+  body.append('password', document.getElementById('p').value.trim());
+  body.append('grant_type','password');
+  const r = await fetch('/api/login', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
+  if(!r.ok){ document.getElementById('loginOk').textContent='❌ Login fejlede'; return; }
+  const data = await r.json();
+  S.token = data.access_token;
+  document.getElementById('loginOk').textContent='✔ Logget ind som '+data.username;
+  await load();
 }
-function headers(){ return { 'Authorization': S.auth, 'Content-Type':'application/json' } }
+function authHeaders(){ return S.token ? {'Authorization':'Bearer '+S.token, 'Content-Type':'application/json'} : {'Content-Type':'application/json'}; }
 function clearForm(){ document.getElementById('eventForm').reset(); document.getElementById('id').value=0; }
 function fill(e){
-for (const k of Object.keys(e)){
-const el=document.getElementById(k);
-if(!el) continue;
-if(k==='tags') el.value=(e.tags||[]).join(',');
-else if(k==='highlight') el.value = String(e.highlight);
-else el.value = e[k] ?? '';
-}
+  for (const k of Object.keys(e)){
+    const el=document.getElementById(k);
+    if(!el) continue;
+    if(k==='tags') el.value=(e.tags||''); else if(k==='highlight') el.value=String(e.highlight); else el.value = e[k] ?? '';
+  }
+  document.getElementById('id').value = e.id || 0;
 }
 async function load(){
-const r = await fetch('/api/events');
-const list = await r.json();
-const el=document.getElementById('list');
-el.innerHTML = list.map(e=>`
-<article class="card">
-${e.poster_url?`<img src="${e.poster_url}">`:''}
-<div style="padding:1rem">
-<h3>${e.title}</h3>
-<p style="opacity:.8">${e.date}${e.start?` · kl. ${e.start}`:''}</p>
-<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
-<button class="btn" onclick='fill(${JSON.stringify(e)})'>Redigér</button>
-</div>
-</div>
-</article>`).join('');
+  const r = await fetch('/api/events');
+  const list = await r.json();
+  const el=document.getElementById('list');
+  el.innerHTML = list.map(e=>`
+    <article class="card">
+      ${e.poster_url?`<img src="${e.poster_url}">`:''}
+      <div style="padding:1rem">
+        <h3>${e.title}</h3>
+        <p style="opacity:.8">${e.date}${e.start?` · kl. ${e.start}`:''}</p>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
+          <button class="btn" onclick='fill(${JSON.stringify(e)})'>Redigér</button>
+        </div>
+      </div>
+    </article>`).join('');
 }
 async function upsert(ev){
-ev.preventDefault();
-const body = {
-id: Number(document.getElementById('id').value||0),
-title: document.getElementById('title').value,
-date: document.getElementById('date').value,
-doors: document.getElementById('doors').value,
-start: document.getElementById('start').value,
-price: document.getElementById('price').value,
-age: document.getElementById('age').value||'18+',
-location: 'Rustik Event, Randers',
-poster_url: document.getElementById('poster_url').value,
-facebook_url: document.getElementById('facebook_url').value,
-tags: (document.getElementById('tags').value||'').split(',').map(s=>s.trim()).filter(Boolean),
-status: document.getElementById('status').value,
-highlight: document.getElementById('highlight').value==='true',
-description: document.getElementById('description').value
-};
-const method = body.id && body.id!==0 ? 'PUT' : 'POST';
-const url = method==='PUT' ? `/api/events/${body.id}` : '/api/events';
-const r = await fetch(url, {method, headers: headers(), body: JSON.stringify(body)});
-if(!r.ok){ alert('Fejl: '+r.status); return }
-clearForm();
-await load();
-alert('Gemt');
+  ev.preventDefault();
+  if(!S.token){ alert('Login først'); return; }
+  const body = {
+    id: Number(document.getElementById('id').value||0),
+    title: document.getElementById('title').value,
+    date: document.getElementById('date').value,
+    doors: document.getElementById('doors').value,
+    start: document.getElementById('start').value,
+    price: document.getElementById('price').value,
+    age: document.getElementById('age').value||'18+',
+    location: 'Rustik Event, Randers',
+    poster_url: document.getElementById('poster_url').value,
+    facebook_url: document.getElementById('facebook_url').value,
+    tags: document.getElementById('tags').value,
+    status: document.getElementById('status').value,
+    highlight: document.getElementById('highlight').value==='true',
+    description: document.getElementById('description').value
+  };
+  const method = body.id && body.id!==0 ? 'PUT' : 'POST';
+  const url = method==='PUT' ? `/api/events/${body.id}` : '/api/events';
+  const r = await fetch(url, {method, headers: authHeaders(), body: JSON.stringify(body)});
+  if(!r.ok){ alert('Fejl: '+r.status); return }
+  clearForm();
+  await load();
+  alert('Gemt');
 }
 async function del(){
-const id = Number(document.getElementById('id').value||0);
-if(!id) return alert('Vælg et event med ID');
-if(!confirm('Slet event #' + id + '?')) return;
-const r = await fetch(`/api/events/${id}`, {method:'DELETE', headers: headers()});
-if(!r.ok){ alert('Fejl: '+r.status); return }
-clearForm();
-await load();
+  if(!S.token){ alert('Login først'); return; }
+  const id = Number(document.getElementById('id').value||0);
+  if(!id) return alert('Vælg et event med ID');
+  if(!confirm('Slet event #' + id + '?')) return;
+  const r = await fetch(`/api/events/${id}`, {method:'DELETE', headers: authHeaders()});
+  if(!r.ok){ alert('Fejl: '+r.status); return }
+  clearForm();
+  await load();
 }
 load();
 </script>
