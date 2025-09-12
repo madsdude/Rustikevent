@@ -1,29 +1,24 @@
 version: "3.9"
 
-
 services:
-api:
-image: python:3.12-slim
-working_dir: /app
-environment:
-ADMIN_USER: ${ADMIN_USER:-admin}
-ADMIN_PASS: ${ADMIN_PASS:-changeme}
-EVENTS_FILE: /data/events.json
-TZ: Europe/Copenhagen
-volumes:
-- ./backend:/app
-- ./data:/data
-command: >-
-sh -c "pip install --no-cache-dir fastapi uvicorn[standard] python-multipart &&
-uvicorn main:app --host 0.0.0.0 --port 8000"
+  api:
+    image: python:3.12-slim
+    working_dir: /app
+    env_file: .env
+    environment:
+      EVENTS_FILE: /data/events.json
+      TZ: Europe/Copenhagen
+    volumes:
+      - ./backend:/app
+      - ./data:/data
+    command: ["sh","-c","pip install --no-cache-dir fastapi uvicorn[standard] python-multipart && uvicorn main:app --host 0.0.0.0 --port 8000"]
 
-
-web:
-image: caddy:alpine
-depends_on:
-- api
-ports:
-- "80:80"
-volumes:
-- ./frontend:/usr/share/caddy
-- ./Caddyfile:/etc/caddy/Caddyfile:ro
+  web:
+    image: caddy:alpine
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend:/usr/share/caddy
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
