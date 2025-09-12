@@ -1,72 +1,33 @@
 :root{
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Kalender · Rustik Event</title>
-<link rel="stylesheet" href="/_shared.css"/>
-</head>
-<body>
-<nav class="nav container">
-<div class="logo">R<span style="color:var(--neon)">EVENTS</span></div>
-<div class="nav-right">
-<a class="btn" href="/">Forside</a>
-<a class="btn" href="https://redir.greeter.dk/s/book-rustik-randers" target="_blank">Book bord</a>
-</div>
-</nav>
-
-
-<main class="container">
-<h1>Kalender</h1>
-<div style="display:flex;gap:.6rem;flex-wrap:wrap;margin:.6rem 0">
-<span class="badge">Randers</span>
-<span class="badge">18+</span>
-</div>
-<div id="filters" style="margin:1rem 0;display:flex;gap:.6rem;flex-wrap:wrap">
-<button class="btn" onclick="filter('all')">Alle</button>
-<button class="btn" onclick="filter('thismonth')">Denne måned</button>
-<button class="btn" onclick="filter('nextmonth')">Næste måned</button>
-</div>
-<div id="list" class="grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))"></div>
-</main>
-
-
-<footer class="footer">© <span id="year"></span> Rustik Event</footer>
-
-
-<script>
-const year = document.getElementById('year'); year.textContent = new Date().getFullYear();
-let ALL=[];
-function render(items){
-const list=document.getElementById('list');
-if(items.length===0){ list.innerHTML='<p>Ingen events fundet.</p>'; return }
-list.innerHTML = items.map(e=>`
-<article class="card">
-${e.poster_url?`<img src="${e.poster_url}" alt="${e.title}">`:''}
-<div style="padding:1rem">
-<h3 style="margin:.2rem 0">${e.title}</h3>
-<p style="opacity:.9">${e.date}${e.start?` · kl. ${e.start}`:''} · ${e.age||'18+'}</p>
-<p style="opacity:.8">${e.description||''}</p>
-<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
-<a class="btn" href="https://redir.greeter.dk/s/book-rustik-randers" target="_blank">Book bord</a>
-${e.facebook_url?`<a class="btn" href="${e.facebook_url}" target="_blank">Facebook</a>`:''}
-</div>
-</div>
-</article>`).join('');
+  --bg:#0b1e1a;       /* dark green background */
+  --card:#102721;     /* card background */
+  --text:#e6f9f3;     /* off white */
+  --muted:#9ad8c7;    /* mint accent */
+  --neon:#a7f3d0;     /* neon glow */
+  --border:#1a3a33;
 }
-function filter(mode){
-const today = new Date();
-if(mode==='all') return render(ALL);
-const y = today.getFullYear();
-const m = today.getMonth() + (mode==='nextmonth'?1:0);
-const start = new Date(y, m, 1);
-const end = new Date(y, m+1, 0);
-const items = ALL.filter(e=>{
-const d = new Date(e.date+"T00:00:00");
-return d>=start && d<=end;
-});
-render(items);
-}
-fetch('/api/events').then(r=>r.json()).then(list=>{ ALL=list; render(ALL); }).catch(()=>{
-document.getElementById('list').innerHTML = '<p>Fejl ved indlæsning.</p>';
-});
-</script>
-</body>
-</html>
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+
+a{color:var(--neon);text-decoration:none}
+a:hover{filter:brightness(1.08)}
+
+.container{max-width:1100px;margin:0 auto;padding:1rem}
+.nav{display:flex;gap:1rem;align-items:center;justify-content:space-between;padding:1rem 1.2rem;border-bottom:1px solid var(--border)}
+.logo{font-weight:800;letter-spacing:.06em}
+
+.btn{display:inline-block;padding:.7rem 1rem;border:1px solid var(--neon);border-radius:14px;transition:transform .15s ease, box-shadow .2s ease}
+.btn:hover{box-shadow:0 0 14px var(--neon); transform: translateY(-1px)}
+
+.hero{padding:4rem 1rem;text-align:center;background: radial-gradient(600px 200px at 50% -40%, rgba(167,243,208,0.25), transparent 60%)}
+.hero h1{font-size:clamp(2rem,4vw,3rem);margin:.5rem 0}
+.hero p{opacity:.9;margin:.2rem 0}
+
+.grid{display:grid;gap:1rem}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.card img{width:100%;height:260px;object-fit:cover}
+.badge{font-size:.8rem;padding:.2rem .6rem;border:1px solid var(--muted);border-radius:999px;color:var(--muted)}
+
+footer.footer{opacity:.8;padding:2rem 1rem;border-top:1px solid var(--border);text-align:center}
+"""
