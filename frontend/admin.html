@@ -1,0 +1,91 @@
+<!doctype html>
+</div>
+</form>
+</section>
+
+
+<section style="margin-top:1rem">
+<h2>Alle events</h2>
+<div id="list" class="grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))"></div>
+</section>
+</main>
+
+
+<script>
+const S = {
+get auth(){ return localStorage.getItem('auth')||'' },
+set auth(v){ localStorage.setItem('auth', v) }
+};
+function saveCreds(e){
+e.preventDefault();
+const u=document.getElementById('u').value.trim();
+const p=document.getElementById('p').value.trim();
+S.auth = 'Basic '+btoa(u+':'+p);
+document.getElementById('loginOk').textContent='✔ Gemt';
+}
+function headers(){ return { 'Authorization': S.auth, 'Content-Type':'application/json' } }
+function clearForm(){ document.getElementById('eventForm').reset(); document.getElementById('id').value=0; }
+function fill(e){
+for (const k of Object.keys(e)){
+const el=document.getElementById(k);
+if(!el) continue;
+if(k==='tags') el.value=(e.tags||[]).join(',');
+else if(k==='highlight') el.value = String(e.highlight);
+else el.value = e[k] ?? '';
+}
+}
+async function load(){
+const r = await fetch('/api/events');
+const list = await r.json();
+const el=document.getElementById('list');
+el.innerHTML = list.map(e=>`
+<article class="card">
+${e.poster_url?`<img src="${e.poster_url}">`:''}
+<div style="padding:1rem">
+<h3>${e.title}</h3>
+<p style="opacity:.8">${e.date}${e.start?` · kl. ${e.start}`:''}</p>
+<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.5rem">
+<button class="btn" onclick='fill(${JSON.stringify(e)})'>Redigér</button>
+</div>
+</div>
+</article>`).join('');
+}
+async function upsert(ev){
+ev.preventDefault();
+const body = {
+id: Number(document.getElementById('id').value||0),
+title: document.getElementById('title').value,
+date: document.getElementById('date').value,
+doors: document.getElementById('doors').value,
+start: document.getElementById('start').value,
+price: document.getElementById('price').value,
+age: document.getElementById('age').value||'18+',
+location: 'Rustik Event, Randers',
+poster_url: document.getElementById('poster_url').value,
+facebook_url: document.getElementById('facebook_url').value,
+tags: (document.getElementById('tags').value||'').split(',').map(s=>s.trim()).filter(Boolean),
+status: document.getElementById('status').value,
+highlight: document.getElementById('highlight').value==='true',
+description: document.getElementById('description').value
+};
+const method = body.id && body.id!==0 ? 'PUT' : 'POST';
+const url = method==='PUT' ? `/api/events/${body.id}` : '/api/events';
+const r = await fetch(url, {method, headers: headers(), body: JSON.stringify(body)});
+if(!r.ok){ alert('Fejl: '+r.status); return }
+clearForm();
+await load();
+alert('Gemt');
+}
+async function del(){
+const id = Number(document.getElementById('id').value||0);
+if(!id) return alert('Vælg et event med ID');
+if(!confirm('Slet event #' + id + '?')) return;
+const r = await fetch(`/api/events/${id}`, {method:'DELETE', headers: headers()});
+if(!r.ok){ alert('Fejl: '+r.status); return }
+clearForm();
+await load();
+}
+load();
+</script>
+</body>
+</html>
