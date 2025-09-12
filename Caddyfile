@@ -1,0 +1,24 @@
+rustikevent.dk {
+encode gzip
+root * /usr/share/caddy
+file_server
+
+
+@api path /api/* /health
+reverse_proxy @api api:8000
+
+
+handle_errors {
+respond "{http.error.status_code} {http.error.status_text}" {http.error.status_code}
+}
+}
+
+
+# Local dev (http://localhost)
+:80 {
+encode gzip
+root * /usr/share/caddy
+file_server
+@api path /api/* /health
+reverse_proxy @api api:8000
+}
