@@ -16,11 +16,6 @@ volumes:
 command: >-
 sh -c "pip install --no-cache-dir fastapi uvicorn[standard] python-multipart &&
 uvicorn main:app --host 0.0.0.0 --port 8000"
-healthcheck:
-test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
-interval: 30s
-timeout: 5s
-retries: 3
 
 
 web:
@@ -29,7 +24,6 @@ depends_on:
 - api
 ports:
 - "80:80"
-- "443:443"
 volumes:
 - ./frontend:/usr/share/caddy
 - ./Caddyfile:/etc/caddy/Caddyfile:ro
