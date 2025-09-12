@@ -1,0 +1,72 @@
+:root{
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Kalender · Rustik Event</title>
+<link rel="stylesheet" href="/_shared.css"/>
+</head>
+<body>
+<nav class="nav container">
+<div class="logo">R<span style="color:var(--neon)">EVENTS</span></div>
+<div class="nav-right">
+<a class="btn" href="/">Forside</a>
+<a class="btn" href="https://redir.greeter.dk/s/book-rustik-randers" target="_blank">Book bord</a>
+</div>
+</nav>
+
+
+<main class="container">
+<h1>Kalender</h1>
+<div style="display:flex;gap:.6rem;flex-wrap:wrap;margin:.6rem 0">
+<span class="badge">Randers</span>
+<span class="badge">18+</span>
+</div>
+<div id="filters" style="margin:1rem 0;display:flex;gap:.6rem;flex-wrap:wrap">
+<button class="btn" onclick="filter('all')">Alle</button>
+<button class="btn" onclick="filter('thismonth')">Denne måned</button>
+<button class="btn" onclick="filter('nextmonth')">Næste måned</button>
+</div>
+<div id="list" class="grid" style="grid-template-columns:repeat(auto-fill,minmax(320px,1fr))"></div>
+</main>
+
+
+<footer class="footer">© <span id="year"></span> Rustik Event</footer>
+
+
+<script>
+const year = document.getElementById('year'); year.textContent = new Date().getFullYear();
+let ALL=[];
+function render(items){
+const list=document.getElementById('list');
+if(items.length===0){ list.innerHTML='<p>Ingen events fundet.</p>'; return }
+list.innerHTML = items.map(e=>`
+<article class="card">
+${e.poster_url?`<img src="${e.poster_url}" alt="${e.title}">`:''}
+<div style="padding:1rem">
+<h3 style="margin:.2rem 0">${e.title}</h3>
+<p style="opacity:.9">${e.date}${e.start?` · kl. ${e.start}`:''} · ${e.age||'18+'}</p>
+<p style="opacity:.8">${e.description||''}</p>
+<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
+<a class="btn" href="https://redir.greeter.dk/s/book-rustik-randers" target="_blank">Book bord</a>
+${e.facebook_url?`<a class="btn" href="${e.facebook_url}" target="_blank">Facebook</a>`:''}
+</div>
+</div>
+</article>`).join('');
+}
+function filter(mode){
+const today = new Date();
+if(mode==='all') return render(ALL);
+const y = today.getFullYear();
+const m = today.getMonth() + (mode==='nextmonth'?1:0);
+const start = new Date(y, m, 1);
+const end = new Date(y, m+1, 0);
+const items = ALL.filter(e=>{
+const d = new Date(e.date+"T00:00:00");
+return d>=start && d<=end;
+});
+render(items);
+}
+fetch('/api/events').then(r=>r.json()).then(list=>{ ALL=list; render(ALL); }).catch(()=>{
+document.getElementById('list').innerHTML = '<p>Fejl ved indlæsning.</p>';
+});
+</script>
+</body>
+</html>
