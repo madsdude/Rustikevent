@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="da">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Login · Rustik Event</title>
+  <link rel="stylesheet" href="/_shared.css"/>
+  <style>
+    .center { min-height: 70vh; display: grid; place-items: center; }
+    .auth-card { width: min(520px, 92vw); padding: 1.25rem; }
+    .row { display:flex; gap:.6rem; flex-wrap:wrap; }
+    input.auth { padding:.8rem; border-radius:12px; border:1px solid #395a51; background:#0d2621; color:var(--text); width:100%; }
+  </style>
+</head>
+<body>
+  <nav class="nav container">
+    <div class="logo">R<span style="color:var(--neon)">EVENTS</span></div>
+    <div class="nav-right">
+      <a class="btn" href="/">Forside</a>
+      <a class="btn" href="/kalender.html">Kalender</a>
+    </div>
+  </nav>
+
+  <main class="container center">
+    <section class="card auth-card">
+      <h1>Login</h1>
+      <p style="opacity:.85">Kun personale. Brug dit admin-login.</p>
+      <form id="f" onsubmit="login(event)" class="row" style="margin-top:.8rem">
+        <input id="u" class="auth" placeholder="Brugernavn" required>
+        <input id="p" class="auth" type="password" placeholder="Adgangskode" required>
+        <button class="btn" type="submit">Login</button>
+        <span id="msg" style="margin-left:.6rem"></span>
+      </form>
+    </section>
+  </main>
+
+  <script>
+  // Already logged in? bounce to target
+  (function(){
+    const token = localStorage.getItem('token');
+    const params = new URLSearchParams(location.search);
+    const redirect = params.get('redirect') || '/admin.html';
+    if (token) location.replace(redirect);
+  })();
+
+  async function login(ev){
+    ev.preventDefault();
+    const body = new URLSearchParams();
+    body.append('username', document.getElementById('u').value.trim());
+    body.append('password', document.getElementById('p').value.trim());
+    body.append('grant_type','password');
+    const r = await fetch('/api/login', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
+    const msg = document.getElementById('msg');
+    if(!r.ok){ msg.textContent = '❌ Login fejlede'; return; }
+    const data = await r.json();
+    localStorage.setItem('token', data.access_token);
+    const params = new URLSearchParams(location.search);
+    const redirect = params.get('redirect') || '/admin.html';
+    location.replace(redirect);
+  }
+  </script>
+</body>
+</html>
