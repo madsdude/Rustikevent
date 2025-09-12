@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Admin · Rustik Event</title>
   <link rel="stylesheet" href="/_shared.css"/>
+  <style>body{visibility:hidden}</style>
+  <script>
+  // Gate: require login before loading the UI
+  (function(){
+    const t = localStorage.getItem('token');
+    if(!t){ location.replace('/login.html?redirect=%2Fadmin.html'); }
+    else { document.addEventListener('DOMContentLoaded', ()=>{ document.body.style.visibility='visible'; }); }
+  })();
+  </script>
 </head>
 <body>
   <nav class="nav container">
@@ -12,21 +21,12 @@
     <div class="nav-right">
       <a class="btn" href="/">Forside</a>
       <a class="btn" href="/kalender.html">Kalender</a>
+      <button class="btn" onclick="logout()">Log ud</button>
     </div>
   </nav>
 
   <main class="container">
     <h1>Admin</h1>
-
-    <section class="card" style="padding:1rem;margin-bottom:1rem">
-      <h2>Login</h2>
-      <form id="loginForm" onsubmit="doLogin(event)" style="display:flex;gap:.6rem;flex-wrap:wrap">
-        <input id="u" placeholder="Brugernavn" required style="padding:.6rem;border-radius:10px;border:1px solid #395a51;background:#0d2621;color:var(--text)"> 
-        <input id="p" type="password" placeholder="Adgangskode" required style="padding:.6rem;border-radius:10px;border:1px solid #395a51;background:#0d2621;color:var(--text)">
-        <button class="btn" type="submit">Login</button>
-        <span id="loginOk" style="margin-left:.6rem"></span>
-      </form>
-    </section>
 
     <section class="card" style="padding:1rem">
       <h2>Opret/redigér event</h2>
@@ -74,23 +74,8 @@
   </main>
 
 <script>
-const S = {
-  get token(){ return localStorage.getItem('token')||'' },
-  set token(v){ localStorage.setItem('token', v) }
-};
-async function doLogin(e){
-  e.preventDefault();
-  const body = new URLSearchParams();
-  body.append('username', document.getElementById('u').value.trim());
-  body.append('password', document.getElementById('p').value.trim());
-  body.append('grant_type','password');
-  const r = await fetch('/api/login', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
-  if(!r.ok){ document.getElementById('loginOk').textContent='❌ Login fejlede'; return; }
-  const data = await r.json();
-  S.token = data.access_token;
-  document.getElementById('loginOk').textContent='✔ Logget ind som '+data.username;
-  await load();
-}
+function logout(){ localStorage.removeItem('token'); location.replace('/login.html'); }
+const S = { get token(){ return localStorage.getItem('token')||'' }, };
 function authHeaders(){ return S.token ? {'Authorization':'Bearer '+S.token, 'Content-Type':'application/json'} : {'Content-Type':'application/json'}; }
 function clearForm(){ document.getElementById('eventForm').reset(); document.getElementById('id').value=0; }
 function fill(e){
@@ -119,7 +104,7 @@ async function load(){
 }
 async function upsert(ev){
   ev.preventDefault();
-  if(!S.token){ alert('Login først'); return; }
+  const token = S.token; if(!token){ return location.replace('/login.html?redirect=%2Fadmin.html'); }
   const body = {
     id: Number(document.getElementById('id').value||0),
     title: document.getElementById('title').value,
@@ -139,18 +124,18 @@ async function upsert(ev){
   const method = body.id && body.id!==0 ? 'PUT' : 'POST';
   const url = method==='PUT' ? `/api/events/${body.id}` : '/api/events';
   const r = await fetch(url, {method, headers: authHeaders(), body: JSON.stringify(body)});
-  if(!r.ok){ alert('Fejl: '+r.status); return }
+  if(!r.ok){ if(r.status===401) return location.replace('/login.html?redirect=%2Fadmin.html'); alert('Fejl: '+r.status); return }
   clearForm();
   await load();
   alert('Gemt');
 }
 async function del(){
-  if(!S.token){ alert('Login først'); return; }
+  const token = S.token; if(!token){ return location.replace('/login.html?redirect=%2Fadmin.html'); }
   const id = Number(document.getElementById('id').value||0);
   if(!id) return alert('Vælg et event med ID');
   if(!confirm('Slet event #' + id + '?')) return;
   const r = await fetch(`/api/events/${id}`, {method:'DELETE', headers: authHeaders()});
-  if(!r.ok){ alert('Fejl: '+r.status); return }
+  if(!r.ok){ if(r.status===401) return location.replace('/login.html?redirect=%2Fadmin.html'); alert('Fejl: '+r.status); return }
   clearForm();
   await load();
 }
