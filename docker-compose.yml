@@ -11,7 +11,8 @@ services:
     volumes:
       - ./backend:/app
       - ./data:/data
-    command: ["sh","-c","pip install --no-cache-dir fastapi uvicorn[standard] python-multipart sqlmodel passlib[bcrypt] PyJWT && uvicorn main:app --host 0.0.0.0 --port 8000"]
+    command: ["sh","-c","pip install --no-cache-dir fastapi uvicorn[standard] sqlmodel passlib[bcrypt] PyJWT && uvicorn main:app --host 0.0.0.0 --port 8000"]
+ 
 
   web:
     image: caddy:alpine
