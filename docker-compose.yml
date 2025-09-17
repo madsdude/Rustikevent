@@ -6,7 +6,6 @@ services:
     working_dir: /app
     env_file: .env
     environment:
-      EVENTS_FILE: /data/events.json
       TZ: Europe/Copenhagen
     volumes:
       - ./backend:/app
