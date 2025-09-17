@@ -20,6 +20,11 @@ services:
       - api
     ports:
       - "80:80"
+      - "443:443"          # <- VIGTIG
     volumes:
-      - ./frontend:/usr/share/caddy
+      - ./frontend:/usr/share/caddy:ro
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./caddy-data:/data          # <- persister certs
+      - ./caddy-config:/config
+    environment:
+      - TZ=Europe/Copenhagen
