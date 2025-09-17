@@ -1,20 +1,19 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import SQLModel, Field, Session, create_engine, select
-from typing import Optional, List, Any
+from pydantic import BaseModel, field_validator
 from passlib.context import CryptContext
-import os, datetime, jwt, re
-import os
-from sqlmodel import Session, select
+from typing import Optional, Any
+import datetime, os, re, jwt
 
 # ---- Config ----
-DB_URL = os.environ.get("DB_URL", "sqlite:////data/events.db")
-SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
-ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
-ADMIN_PASS = os.environ.get("ADMIN_PASS", "changeme")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_HOURS = 12
+DB_URL      = os.environ.get("DB_URL", "sqlite:////data/events.db")
+SECRET_KEY  = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+ADMIN_USER  = os.environ.get("ADMIN_USER", "admin")
+ADMIN_PASS  = os.environ.get("ADMIN_PASS", "changeme")
+ALGORITHM   = "HS256"
+TOKEN_HOURS = 12
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 engine = create_engine(DB_URL, connect_args={"check_same_thread": False})
@@ -23,30 +22,30 @@ app = FastAPI(title="RustikEvent API", version="0.3")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],   # låses evt. ned senere
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---- Models (DB) ----
+# ---- DB Models ----
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    username: str = Field(index=True, unique=True)
+    username: str      = Field(index=True, unique=True)
     password_hash: str
 
 class Event(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str
-    date: str  # YYYY-MM-DD (we'll normalize inputs)
-    doors: Optional[str] = None  # HH:MM
-    start: Optional[str] = None  # HH:MM
+    date: str                       # YYYY-MM-DD
+    doors: Optional[str] = None     # HH:MM
+    start: Optional[str] = None     # HH:MM
     price: Optional[str] = None
     age: Optional[str] = "18+"
     location: Optional[str] = "Rustik Event, Randers"
     poster_url: Optional[str] = None
     facebook_url: Optional[str] = None
-    tags: Optional[str] = None  # comma-separated
+    tags: Optional[str] = None      # comma-separated
     status: Optional[str] = "announced"
     highlight: bool = False
     description: Optional[str] = None
@@ -62,15 +61,13 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, password_hash: str) -> bool:
     return pwd_context.verify(password, password_hash)
 
-def create_access_token(data: dict, expires_delta: datetime.timedelta | None = None):
+def create_access_token(data: dict, hours: int = TOKEN_HOURS) -> str:
     to_encode = data.copy()
-    expire = datetime.datetime.utcnow() + (expires_delta or datetime.timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS))
+    expire = datetime.datetime.utcnow() + datetime.timedelta(hours=hours)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-from fastapi import Request
-def get_current_user(request: Request, session: Session = Depends(get_session)):
+def get_current_user(request: Request, session: Session = Depends(get_session)) -> User:
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         raise HTTPException(401, "Missing Bearer token")
@@ -79,7 +76,7 @@ def get_current_user(request: Request, session: Session = Depends(get_session)):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except Exception:
         raise HTTPException(401, "Invalid token")
-    username: str = payload.get("sub")
+    username: Optional[str] = payload.get("sub")
     if not username:
         raise HTTPException(401, "Invalid token")
     user = session.exec(select(User).where(User.username == username)).first()
@@ -88,8 +85,10 @@ def get_current_user(request: Request, session: Session = Depends(get_session)):
     return user
 
 def normalize_date(s: str) -> str:
-    if not s: return s
+    if not s:
+        return s
     s = str(s)
+    # DD-MM-YYYY -> YYYY-MM-DD
     if re.match(r'^\d{2}-\d{2}-\d{4}$', s):
         d, m, y = s.split('-')
         return f"{y}-{m}-{d}"
@@ -102,38 +101,25 @@ def normalize_tags(v: Any) -> Optional[str]:
         return ",".join([str(x).strip() for x in v if str(x).strip()])
     return str(v)
 
-# ---- Startup ----
+# ---- Startup (DB + admin sync fra .env) ----
 @app.on_event("startup")
 def on_startup():
     os.makedirs("/data", exist_ok=True)
     SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        if not session.exec(select(User).where(User.username == ADMIN_USER)).first():
-            session.add(User(username=ADMIN_USER, password_hash=hash_password(ADMIN_PASS)))
-            session.commit()
 
-from fastapi import FastAPI
-app = FastAPI()
-
-@app.on_event("startup")
-def ensure_admin_on_startup():
-    """Synkroniser admin-bruger til .env ved hver opstart."""
-    admin_user = os.getenv("ADMIN_USER", "admin")
-    admin_pass = os.getenv("ADMIN_PASS", "changeme")
+    admin_user = os.getenv("ADMIN_USER", ADMIN_USER)
+    admin_pass = os.getenv("ADMIN_PASS", ADMIN_PASS)
     if not admin_user or not admin_pass:
         return
 
     with Session(engine) as s:
         u = s.exec(select(User).where(User.username == admin_user)).first()
         if u:
-            u.password_hash = hash_password(admin_pass)
+            u.password_hash = hash_password(admin_pass)  # sync ved hver start
             s.add(u)
-            s.commit()
-            # print("Admin password reset:", admin_user)
         else:
             s.add(User(username=admin_user, password_hash=hash_password(admin_pass)))
-            s.commit()
-            # print("Admin user created:", admin_user)
+        s.commit()
 
 # ---- Health ----
 @app.get("/health")
@@ -152,12 +138,10 @@ def login(form: OAuth2PasswordRequestForm = Depends(), session: Session = Depend
 # ---- Public Events ----
 @app.get("/api/events")
 def list_events(session: Session = Depends(get_session)):
-    # Return as list of dicts to be flexible
     rows = session.exec(select(Event).order_by(Event.date)).all()
     return [e.model_dump() for e in rows]
 
-# ---- Admin Events (tolerant DTOs) ----
-from pydantic import BaseModel, field_validator
+# ---- Admin DTOs ----
 class EventCreate(BaseModel):
     title: str
     date: str
@@ -204,6 +188,7 @@ class EventUpdate(BaseModel):
     @classmethod
     def _tags(cls, v): return normalize_tags(v)
 
+# ---- Admin Events (kræver Bearer token) ----
 @app.post("/api/events")
 def create_event(payload: EventCreate, _: User = Depends(get_current_user), session: Session = Depends(get_session)):
     e = Event(**payload.model_dump())
