@@ -5,6 +5,8 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 from typing import Optional, List, Any
 from passlib.context import CryptContext
 import os, datetime, jwt, re
+import os
+from sqlmodel import Session, select
 
 # ---- Config ----
 DB_URL = os.environ.get("DB_URL", "sqlite:////data/events.db")
@@ -109,6 +111,29 @@ def on_startup():
         if not session.exec(select(User).where(User.username == ADMIN_USER)).first():
             session.add(User(username=ADMIN_USER, password_hash=hash_password(ADMIN_PASS)))
             session.commit()
+
+from fastapi import FastAPI
+app = FastAPI()
+
+@app.on_event("startup")
+def ensure_admin_on_startup():
+    """Synkroniser admin-bruger til .env ved hver opstart."""
+    admin_user = os.getenv("ADMIN_USER", "admin")
+    admin_pass = os.getenv("ADMIN_PASS", "changeme")
+    if not admin_user or not admin_pass:
+        return
+
+    with Session(engine) as s:
+        u = s.exec(select(User).where(User.username == admin_user)).first()
+        if u:
+            u.password_hash = hash_password(admin_pass)
+            s.add(u)
+            s.commit()
+            # print("Admin password reset:", admin_user)
+        else:
+            s.add(User(username=admin_user, password_hash=hash_password(admin_pass)))
+            s.commit()
+            # print("Admin user created:", admin_user)
 
 # ---- Health ----
 @app.get("/health")
