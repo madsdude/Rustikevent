@@ -87,7 +87,7 @@
     if(upcoming.length===0){ el.innerHTML = '<p>Ingen planlagte events endnu. Følg os på Facebook for nyheder.</p>'; return; }
     el.innerHTML = upcoming.map(e=>`
       <article class="card">
-        ${e.poster_url?`<img src="${e.poster_url}" alt="${e.title}">`:''}
+        ${e.poster_url?`<img src="${e.poster_url}" alt="${e.title}" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='/img/placeholder.jpg'">`:''}
         <div style="padding:1rem">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem">
             <h3 style="margin:.2rem 0">${e.title}</h3>
