@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="referrer" content="no-referrer">
   <title>Kalender · Rustik Event</title>
   <link rel="stylesheet" href="/_shared.css"/>
 </head>
@@ -32,17 +33,32 @@
   <footer class="footer">© <span id="year"></span> Rustik Event</footer>
 
 <script>
+// Helper: undgå fbcdn/facebook hotlink -> brug lokal placeholder
+function safePoster(url){
+  if(!url) return '/img/placeholder.jpg';
+  const isFB = /(^https?:\/\/)?([a-z0-9.-]*\.)?(fbcdn\.net|facebook\.com)\//i.test(url);
+  return isFB ? '/img/placeholder.jpg' : url;
+}
+
 let ALL=[], filterMode='all';
 const year = document.getElementById('year'); year.textContent = new Date().getFullYear();
+
 function render(items){
   const list=document.getElementById('list');
   if(items.length===0){ list.innerHTML='<p>Ingen events fundet.</p>'; return }
   list.innerHTML = items.map(e=>`
   <article class="card">
-    ${e.poster_url?`<img src="${e.poster_url}" alt="${e.title}">`:''}
+    ${e.poster_url ? `
+      <img src="${safePoster(e.poster_url)}"
+           alt="${(e.title||'').replace(/"/g,'&quot;')}"
+           loading="lazy"
+           referrerpolicy="no-referrer"
+           onerror="this.onerror=null;this.src='/img/placeholder.jpg'">` : `
+      <img src="/img/placeholder.jpg" alt="" loading="lazy">`
+    }
     <div style="padding:1rem">
-      <h3 style="margin:.2rem 0">${e.title}</h3>
-      <p style="opacity:.9">${e.date}${e.start?` · kl. ${e.start}`:''} · ${e.age||'18+'}</p>
+      <h3 style="margin:.2rem 0">${e.title||''}</h3>
+      <p style="opacity:.9">${e.date||''}${e.start?` · kl. ${e.start}`:''} · ${e.age||'18+'}</p>
       <p style="opacity:.8">${e.description||''}</p>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
         <a class="btn" href="https://redir.greeter.dk/s/book-rustik-randers" target="_blank">Book bord</a>
@@ -51,6 +67,7 @@ function render(items){
     </div>
   </article>`).join('');
 }
+
 function apply(){
   const today = new Date();
   if(filterMode==='all') return render(ALL);
@@ -58,14 +75,18 @@ function apply(){
   const start = new Date(base.getFullYear(), base.getMonth(), 1);
   const end = new Date(base.getFullYear(), base.getMonth()+1, 0);
   const items = ALL.filter(e=>{
-    const d = new Date(e.date+"T00:00:00");
-    return d>=start && d<=end;
+    const d = new Date((e.date||'')+"T00:00:00");
+    return !isNaN(d) && d>=start && d<=end;
   });
   render(items);
 }
-fetch('/api/events').then(r=>r.json()).then(list=>{ ALL=list; apply(); }).catch(()=>{
-  document.getElementById('list').innerHTML = '<p>Fejl ved indlæsning.</p>';
-});
+
+fetch('/api/events')
+  .then(r=>r.json())
+  .then(list=>{ ALL=list||[]; apply(); })
+  .catch(()=>{
+    document.getElementById('list').innerHTML = '<p>Fejl ved indlæsning.</p>';
+  });
 </script>
 </body>
 </html>
