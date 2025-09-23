@@ -9,6 +9,33 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/_shared.css"/>
   <meta name="description" content="Koncerter & events i Randers — Rustik Event"/>
+
+  <!-- Google tag (gtag.js) + Consent Mode v2 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-HZD2H5MK76"></script>
+  <script>
+    // DataLayer + helper
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){ dataLayer.push(arguments); }
+
+    // EU: start med 'denied' indtil bruger giver samtykke
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      analytics_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied',
+      wait_for_update: 500
+    });
+
+    // Init
+    gtag('js', new Date());
+
+    // Kun track i prod (ikke localhost)
+    if (location.hostname !== 'localhost') {
+      gtag('config', 'G-HZD2H5MK76', {
+        transport_type: 'beacon'
+      });
+    }
+  </script>
 </head>
 <body>
   <nav class="nav container">
@@ -39,7 +66,19 @@
 
   <footer class="footer">© <span id="year"></span> Rustik Event · Randers · 18+</footer>
 
+  <!-- Cookie-banner (simpelt) -->
+  <div id="cookie-banner" style="position:fixed;left:0;right:0;bottom:0;padding:12px 16px;background:#0b0b0f;border-top:1px solid #1f2937;color:#fff;display:flex;gap:12px;align-items:center;justify-content:space-between;z-index:9999;box-shadow:0 -8px 30px rgba(0,0,0,.35);font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+    <div style="max-width:70ch;font-size:14px;line-height:1.4">
+      Vi bruger cookies til statistik (Google Analytics). Læs mere i vores privatlivspolitik. Accepterer du?
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button onclick="rejectCookies()" class="btn" style="padding:8px 12px;border:1px solid #334155;background:#111827;color:#e5e7eb;border-radius:8px;cursor:pointer">Afvis</button>
+      <button onclick="acceptCookies()" class="btn" style="padding:8px 12px;border:0;background:var(--neon,#39FF14);color:#09110b;font-weight:700;border-radius:8px;cursor:pointer">Acceptér</button>
+    </div>
+  </div>
+
   <script>
+  // Events + footer-år
   const el = document.getElementById('events');
   const year = document.getElementById('year'); year.textContent = new Date().getFullYear();
   fetch('/api/events').then(r=>r.json()).then(list=>{
@@ -64,6 +103,38 @@
       </article>
     `).join('');
   }).catch(()=>{ el.innerHTML = '<p>Kan ikke hente events lige nu.</p>';});
+
+  // Cookie-consent logik
+  const CONSENT_KEY = 'cookie_consent_v1';
+  const savedConsent = localStorage.getItem(CONSENT_KEY);
+  const banner = document.getElementById('cookie-banner');
+
+  if (savedConsent === 'granted') {
+    banner.style.display = 'none';
+    grantConsent();
+  } else if (savedConsent === 'denied') {
+    banner.style.display = 'none';
+    // behold default denied
+  }
+
+  function grantConsent(){
+    gtag('consent', 'update', {
+      ad_storage: 'granted',
+      analytics_storage: 'granted',
+      ad_user_data: 'granted',
+      ad_personalization: 'granted'
+    });
+  }
+  function acceptCookies(){
+    localStorage.setItem(CONSENT_KEY, 'granted');
+    grantConsent();
+    banner.style.display = 'none';
+  }
+  function rejectCookies(){
+    localStorage.setItem(CONSENT_KEY, 'denied');
+    // forbliv 'denied'
+    banner.style.display = 'none';
+  }
   </script>
 </body>
 </html>
