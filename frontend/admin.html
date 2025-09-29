@@ -121,7 +121,7 @@ function fill(e){
     if (!el) continue;
     el.value = (e[k] ?? '');
   }
-  document.getElementById('location')?.value = e.location || 'Rustik Event, Randers';
+ // document.getElementById('location')?.value = e.location || 'Rustik Event, Randers';
   document.getElementById('highlight').value = String(!!e.highlight);
 }
 
