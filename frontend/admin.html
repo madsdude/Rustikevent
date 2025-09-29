@@ -139,7 +139,7 @@ function posterImg(url, alt=''){
 
 async function load(){
   try{
-    const r = await fetch(`${API}/events`);
+    const r = await fetch(`${API}/events?t=${Date.now()}`); // cache-buster
     if (r.status === 401) { return location.replace('/login.html?redirect=%2Fadmin.html'); }
     const data = await safeJSON(r);
     if(!r.ok || !Array.isArray(data)){ setMsg('Kunne ikke hente events ('+r.status+').'); return; }
@@ -229,7 +229,8 @@ async function upsert(ev){
 
 // SLET
 async function del(idFromBtn){
-  const id = Number(idFromBtn ?? document.getElementById('id').value || 0);
+  // FIX: paranteser for at undgå blanding af ?? og ||
+  const id = Number((idFromBtn ?? document.getElementById('id').value) || 0);
   if(!id){ alert('Vælg et event med ID'); return; }
   if(!confirm('Slet event #' + id + '?')) return;
 
@@ -265,7 +266,7 @@ document.getElementById('list').addEventListener('click', (ev)=>{
 
   if (btn.classList.contains('edit-btn')) {
     // hent event fra API (sikkert hvis data kan have specialtegn)
-    fetch(`${API}/events`)
+    fetch(`${API}/events?t=${Date.now()}`) // cache-buster
       .then(r => r.json())
       .then(arr => {
         const e = (arr||[]).find(x => Number(x.id) === id);
